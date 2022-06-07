@@ -1,0 +1,26 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/pi/Desktop/InternetReceiver/main.cpp
+iostream
+-
+wiringPi.h
+-
+thread
+-
+queue
+-
+stdlib.h
+-
+fcntl.h
+-
+sys/mman.h
+-
+unistd.h
+-
+

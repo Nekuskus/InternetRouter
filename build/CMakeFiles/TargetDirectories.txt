@@ -1,0 +1,3 @@
+/home/pi/Desktop/InternetReceiver/build/CMakeFiles/rebuild_cache.dir
+/home/pi/Desktop/InternetReceiver/build/CMakeFiles/InternetRouter.dir
+/home/pi/Desktop/InternetReceiver/build/CMakeFiles/edit_cache.dir
