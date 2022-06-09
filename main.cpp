@@ -4,6 +4,7 @@
 #include <thread>
 #include <queue>
 #include <bitset>
+#include <cstring>
 //#include <pi-gpio.h>
 
 char hex[16] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
@@ -16,7 +17,7 @@ unsigned char macaddress[6] = {0b10000101, 0b10010000, 0b00000000, 0b00000000, 0
 
 
 //String protocols[3] = {"DHCP", "ICMP", "SEND"};
-std::string protocols[3] = {"DHCP", "ICMP", "SEND"};
+std::string protocols[4] = {"DHCP", "ICMP", "SEND", "ARP"};
 
 class L7Data {
 public:
@@ -104,6 +105,16 @@ public:
     }
     L2FrameUDP& operator=(const L2FrameUDP&) = default;
 };
+class RouteEntry {
+public:
+    uint32_t ip;
+    uint32_t mask;
+    uint8_t macaddress[6];
+    RouteEntry(uint32_t _ip, uint32_t _mask, uint8_t _macaddress[6]) : ip{_ip}, mask{_mask} {
+      memcpy((void*) macaddress, (const void *) _macaddress, sizeof(macaddress));
+    }
+    RouteEntry& operator=(const RouteEntry&) = default;
+};
 
 // these are meant to transport data from the io thread to the routing one
 // pair arguments: unsigned char - eth channel id (0-3), L2FrameUDP - the frame
@@ -118,20 +129,25 @@ std::thread router;
 
 volatile int eth[4] = { serialOpen("/dev/ttyAMA1", 9600), serialOpen("/dev/ttyAMA2", 9600), serialOpen("/dev/ttyAMA3", 9600), serialOpen("/dev/ttyAMA4", 9600)};
 
-volatile std::pair<uint32_t, uint32_t> routingtable[4] = {std::pair<uint32_t, uint32_t>(0, 0), std::pair<uint32_t, uint32_t>(0, 0), std::pair<uint32_t, uint32_t>(0, 0), std::pair<uint32_t, uint32_t>(0, 0)};
+uint8_t nulladdress[6] = {0, 0, 0, 0, 0, 0};
+RouteEntry routingtable[4] = {RouteEntry(0, 0, nulladdress), RouteEntry(0, 0, nulladdress), RouteEntry(0, 0, nulladdress), RouteEntry(0, 0, nulladdress)};
 
+//volatile int firstdiscards[4] = {0, 0, 0, 0};
+
+volatile int serverip[4] = {0x0A000001, 0x0A010001, 0x0A020001, 0x0A030001};
+
+uint8_t addressincrement[4] = {1, 1, 1, 1};
 
 void printpacket(L2FrameUDP frame) {
     while(is_writing == true) {}
     is_writing = true;
-    std::cout << "Received packet:\n";
     //std::cout << "L2 Sourcemac: " << std::bitset<8>(frame.sourcemac0) << std::bitset<8>(frame.sourcemac1) << std::bitset<8>(frame.sourcemac2) << std::bitset<8>(frame.sourcemac3) << std::bitset<8>(frame.sourcemac4) << std::bitset<8>(frame.sourcemac5) << '\n';
     //std::cout << "L2 Destinationmac: " << std::bitset<8>(frame.destinationmac0) << std::bitset<8>(frame.destinationmac1) << std::bitset<8>(frame.destinationmac2) << std::bitset<8>(frame.destinationmac3) << std::bitset<8>(frame.destinationmac4) << std::bitset<8>(frame.destinationmac5) << '\n';
     std::cout << "L2 Sourcemac: " << std::hex << (uint32_t)frame.sourcemac0 << ':' << (uint32_t)frame.sourcemac1 << ':' << (uint32_t)frame.sourcemac2 << ':' << (uint32_t)frame.sourcemac3 << ':' << (uint32_t)frame.sourcemac4 << ':' << (uint32_t)frame.sourcemac5 << std::dec << '\n';
     std::cout << "L2 Destinationmac: " << std::hex << (uint32_t)frame.destinationmac0 << ':' << (uint32_t)frame.destinationmac1 << ':' << (uint32_t)frame.destinationmac2 << ':' << (uint32_t)frame.destinationmac3 << ':' << (uint32_t)frame.destinationmac4 << ':' << (uint32_t)frame.destinationmac5 << std::dec << '\n';
     std::cout << "L2 CRC: " << frame.crc << '\n';
-    std::cout << "L3 Sourceip: " << (uint32_t)((frame.L3.sourceip >> (3*8)) && 0b11111111) << '.' << (uint32_t)((frame.L3.sourceip >> (2*8)) && 0b11111111) << '.' << (uint32_t)((frame.L3.sourceip >> (1*8)) && 0b11111111) << '.' << (uint32_t)(frame.L3.sourceip && 0b11111111) << '\n';
-    std::cout << "L3 Destinationip: " << (uint32_t)((frame.L3.destinationip >> (3*8)) && 0b11111111) << '.' << (uint32_t)((frame.L3.destinationip >> (2*8)) && 0b11111111) << '.' << (uint32_t)((frame.L3.destinationip >> (1*8)) && 0b11111111) << '.' << (uint32_t)(frame.L3.destinationip && 0b11111111) << '\n';
+    std::cout << "L3 Sourceip: " << (uint32_t)((frame.L3.sourceip >> (3*8)) & 0b11111111) << '.' << (uint32_t)((frame.L3.sourceip >> (2*8)) & 0b11111111) << '.' << (uint32_t)((frame.L3.sourceip >> (1*8)) & 0b11111111) << '.' << (uint32_t)(frame.L3.sourceip & 0b11111111) << '\n';
+    std::cout << "L3 Destinationip: " << (uint32_t)((frame.L3.destinationip >> (3*8)) & 0b11111111) << '.' << (uint32_t)((frame.L3.destinationip >> (2*8)) & 0b11111111) << '.' << (uint32_t)((frame.L3.destinationip >> (1*8)) & 0b11111111) << '.' << (uint32_t)(frame.L3.destinationip & 0b11111111) << '\n';
     std::cout << "L3 Sourcemask: " << "0x" << std::hex << frame.L3.sourcemask << std::dec << '\n';
     std::cout << "L3 TTL: " << (uint32_t)frame.L3.TTL << '\n';
     std::cout << "L4 Istcp: " << frame.L3.L4.istcp << '\n';
@@ -162,10 +178,94 @@ void routingthread() {
             //   bits[352-1-i] = t;
             //}
             L2FrameUDP frame = incomingdata.front().second;
+            uint8_t ethid = incomingdata.front().first;
             //std::cout << "First eight bytes" << (unsigned int)bits[351-0] << (unsigned int)bits[351-1] << (unsigned int)bits[351-2] << (unsigned int)bits[351-3] << (unsigned int)bits[351-4] << (unsigned int)bits[351-5] << (unsigned int)bits[351-6] << (unsigned int)bits[351-7] << '\n';
             incomingdata.pop();
-
+            std::cout << "\nReceived packet: " << std::endl;;
             printpacket(frame);
+            // handle dhcp
+            if((frame.destinationmac0 == 0xFF) && (frame.destinationmac1 == 0xFF) && (frame.destinationmac2 == 0xFF) && (frame.destinationmac3 == 0xFF) && (frame.destinationmac4 == 0xFF) && (frame.destinationmac5 == 0xFF) && (frame.L3.L4.destinationport == 67) && (frame.L3.L4.sourceport == 68) && (frame.L3.L4.L5.L6.protocolid == 0) && (frame.L3.L4.L5.L6.L7.data0 == 53)) {
+                if(frame.L3.L4.L5.L6.L7.data1 == 0x1) { // DHCPDISCOVER(1) -> DHCPOFFER(2)
+                    if(routingtable[ethid].ip == 0) {
+                        addressincrement[ethid]++;
+                        if(addressincrement[ethid] == 0 || addressincrement[ethid] == 1 || addressincrement[ethid] == 255) addressincrement[ethid] = 2;
+                        uint8_t offerdata[10] = {53, 0x2, 10, ethid, 0x0, addressincrement[ethid], 0xFF, 0xFF, 0xFF, 0x0 };
+                        L7Data l7(offerdata);
+                        L6Data l6(0, l7);
+                        L5Session l5(0, l6);
+                        L4DatagramUDP l4(68, 67, l5, false);
+                        L3PacketUDP l3(0x0A000000 + (ethid << (8 * 2)) + addressincrement[ethid], serverip[ethid], 0xFFFFFF00, 254, l4);
+                        uint8_t destmac[6] = {frame.sourcemac0, frame.sourcemac1, frame.sourcemac2, frame.sourcemac3, frame.sourcemac4, frame.sourcemac5};
+                        L2FrameUDP l2(destmac, macaddress, l3, 0x0);
+                        std::cout << "\nSent packet: " << std::endl;
+                        printpacket(l2);
+                        outgoingdata.emplace(std::pair<uint8_t, L2FrameUDP>(ethid, l2));
+                    }
+                } else if (frame.L3.L4.L5.L6.L7.data1 == 0x3) {  // DHCPREQUEST(3) -> DHCPACKNOWLEDGE(5)
+                    if(routingtable[ethid].ip == 0) {
+                        uint8_t offerdata[10] = {53, 0x5, 10, ethid, 0x0, frame.L3.L4.L5.L6.L7.data5, 0xFF, 0xFF, 0xFF, 0x0 };
+                        L7Data l7(offerdata);
+                        L6Data l6(0, l7);
+                        L5Session l5(0, l6);
+                        L4DatagramUDP l4(68, 67, l5, false);
+                        L3PacketUDP l3(0x0A000000 + (ethid << (8 * 2)) + (frame.L3.destinationip & 0b11111111),serverip[ethid], 0xFFFFFF00, 254, l4);
+                        uint8_t destmac[6] = {frame.sourcemac0, frame.sourcemac1, frame.sourcemac2, frame.sourcemac3, frame.sourcemac4, frame.sourcemac5};
+                        L2FrameUDP l2(destmac, macaddress, l3, 0x0);
+                        std::cout << "\nSent packet: " << std::endl;
+                        printpacket(l2);
+                        RouteEntry entry(0x0A000000 + (ethid << (8 * 2)) + (frame.L3.destinationip & 0b11111111), 0xFFFFFF00, destmac);
+                        routingtable[ethid] = entry;
+                        outgoingdata.emplace(std::pair<uint8_t, L2FrameUDP>(ethid, l2));
+                    }
+                }
+            }
+            // handle ARP
+            else if(frame.L3.L4.L5.L6.protocolid == 4 && frame.L3.destinationip == serverip[ethid]) {
+                uint32_t searchedaddress[6] = {frame.L3.L4.L5.L6.L7.data0, frame.L3.L4.L5.L6.L7.data1, frame.L3.L4.L5.L6.L7.data2, frame.L3.L4.L5.L6.L7.data3, frame.L3.L4.L5.L6.L7.data4, frame.L3.L4.L5.L6.L7.data5};
+                uint32_t result = -1;
+                for(int i = 0; i < 4; i++) {
+                    for(int i2 = 0; i2 < 6; i2++){
+                        if(routingtable[i].macaddress[i2] != searchedaddress[i2]) goto afterloop;
+                    }
+                    result = routingtable[i].ip;
+                afterloop:
+                    searchedaddress[0] = searchedaddress[0];
+                }
+                if(result != -1) {
+                    uint8_t arpdata[10] = {(result >> (3 * 8)) & 0b11111111, (result >> (2 * 8)) & 0b11111111, (result >> (1 * 8)) & 0b11111111, result & 0b11111111, 0, 0, 0, 0, 0, 0};
+                    L7Data l7(arpdata);
+                    L6Data l6(0, l7);
+                    L5Session l5(0, l6);
+                    L4DatagramUDP l4(0, 0, l5, false);
+                    L3PacketUDP l3(frame.L3.sourceip, serverip[ethid], 0xFFFFFF00, 254, l4);
+                    uint8_t destmac[6] = {frame.sourcemac0, frame.sourcemac1, frame.sourcemac2, frame.sourcemac3, frame.sourcemac4, frame.sourcemac5};
+                    L2FrameUDP l2(destmac, macaddress, l3, 0x0);
+                    std::cout << "\nSent packet: " << std::endl;
+                    printpacket(l2);
+                    outgoingdata.emplace(std::pair<uint8_t, L2FrameUDP>(ethid, l2));
+                }
+            }
+            // handle icmp and send
+            else if(((frame.L3.L4.L5.L6.protocolid == 1) || (frame.L3.L4.L5.L6.protocolid == 2)) )  {
+                frame.sourcemac0 = macaddress[0];
+                frame.sourcemac1 = macaddress[1];
+                frame.sourcemac2 = macaddress[2];
+                frame.sourcemac3 = macaddress[3];
+                frame.sourcemac4 = macaddress[4];
+                frame.sourcemac5 = macaddress[5];
+                frame.L3.TTL -= 1;
+                int destid = -1;
+                for(int i = 0; i < 4; i++) {
+                    if(routingtable[i].ip == frame.L3.destinationip) {
+                        destid = i;
+                    }
+                }
+                if(destid != -1) {
+                    std::cout << "\nSent packet: " << std::endl;
+                    printpacket(frame);
+                    outgoingdata.emplace(std::pair<uint8_t, L2FrameUDP>(destid, frame));
+                }
+            }
 
         }
     }
@@ -174,10 +274,18 @@ void pollForPackets() {
     int lastavail[4] = {0, 0, 0, 0};
     int samecounter[4] = {0, 0, 0, 0};
 
-    bool firstpacket[4] = {true, true, true, true};
+    //bool firstpacket[4] = {true, true, true, true};
 
     while(true) {
-
+        if(!outgoingdata.empty()) {
+            uint8_t ethid = outgoingdata.front().first;
+            L2FrameUDP frame = outgoingdata.front().second;
+            outgoingdata.pop();
+            uint8_t* bytes = reinterpret_cast<uint8_t*>(&frame);
+            for(int i = 0; i < sizeof(L2FrameUDP); i++) {
+                serialPutchar(eth[ethid], bytes[i]);
+            }
+        }
         while(is_writing == true) {}
         is_writing = true;
         int avail[4] = {serialDataAvail(eth[0]), serialDataAvail(eth[1]), serialDataAvail(eth[2]), serialDataAvail(eth[3])};
@@ -186,9 +294,10 @@ void pollForPackets() {
         for(int i = 0; i < 4; i++) {
             if(avail[i] == lastavail[i]) {
                 samecounter[i]++;
-                if(samecounter[i] >= 40) {
+                if(samecounter[i] >= 180) { // 180s, after 3 minutes, the port is automaticall freed
                     serialFlush(i);
-                    firstpacket[i] = true;
+                    //firstpacket[i] = true;
+                    routingtable[i] = RouteEntry(0, 0, nulladdress);
                     samecounter[i] = 0;
                     while(is_writing == true) {}
                     is_writing = true;
@@ -205,11 +314,8 @@ void pollForPackets() {
                     multiple = multiple + 1;
                 }
                 multiple = multiple - 1;
-                if(firstpacket[i]) {
-                    for(int i2 = 0; i2 < (avail[i] - (multiple * sizeof(L2FrameUDP))); i2++) {
-                        serialGetchar(eth[i]);
-                    }
-                    firstpacket[i] = false;
+                for(int i2 = 0; i2 < (avail[i] - (multiple * sizeof(L2FrameUDP))); i2++) {
+                    serialGetchar(eth[i]);
                 }
                 while(avail[i] >= sizeof(L2FrameUDP)) {
                     uint8_t bytes[sizeof(L2FrameUDP)];
@@ -218,12 +324,16 @@ void pollForPackets() {
                     }
                     std::bitset<sizeof(L2FrameUDP) * 8> bitset = *(reinterpret_cast<std::bitset<sizeof(L2FrameUDP) * 8>*>(bytes));
                     L2FrameUDP received = *(reinterpret_cast<L2FrameUDP*>(&bitset));
+                    //if(firstdiscards[i] == 4) {
                     incomingdata.emplace(std::pair<unsigned char, L2FrameUDP>(i, received));
+                    //} else {
+                    //    firstdiscards[i]++;
+                    //}
                     avail[i] -= sizeof(L2FrameUDP);
                 }
             }
         }
-        delay(500);
+        delay(1000);
     }
 
     /*
