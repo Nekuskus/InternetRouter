@@ -4,7 +4,7 @@ set(CMAKE_DEPENDS_LANGUAGES
   )
 # The set of files for implicit dependencies of each language:
 set(CMAKE_DEPENDS_CHECK_CXX
-  "/home/pi/Desktop/InternetReceiver/main.cpp" "/home/pi/Desktop/InternetReceiver/build/CMakeFiles/InternetRouter.dir/main.cpp.o"
+  "/home/pi/Desktop/InternetRouter/main.cpp" "/home/pi/Desktop/InternetRouter/build/CMakeFiles/InternetRouter.dir/main.cpp.o"
   )
 set(CMAKE_CXX_COMPILER_ID "GNU")
 

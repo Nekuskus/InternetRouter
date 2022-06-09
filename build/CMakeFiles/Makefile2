@@ -44,10 +44,10 @@ RM = /usr/bin/cmake -E remove -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/pi/Desktop/InternetReceiver
+CMAKE_SOURCE_DIR = /home/pi/Desktop/InternetRouter
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/pi/Desktop/InternetReceiver/build
+CMAKE_BINARY_DIR = /home/pi/Desktop/InternetRouter/build
 
 #=============================================================================
 # Directory level rules for the build root directory
@@ -74,14 +74,14 @@ clean: CMakeFiles/InternetRouter.dir/clean
 CMakeFiles/InternetRouter.dir/all:
 	$(MAKE) -f CMakeFiles/InternetRouter.dir/build.make CMakeFiles/InternetRouter.dir/depend
 	$(MAKE) -f CMakeFiles/InternetRouter.dir/build.make CMakeFiles/InternetRouter.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/pi/Desktop/InternetReceiver/build/CMakeFiles --progress-num=1,2 "Built target InternetRouter"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/pi/Desktop/InternetRouter/build/CMakeFiles --progress-num=1,2 "Built target InternetRouter"
 .PHONY : CMakeFiles/InternetRouter.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/InternetRouter.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/pi/Desktop/InternetReceiver/build/CMakeFiles 2
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/pi/Desktop/InternetRouter/build/CMakeFiles 2
 	$(MAKE) -f CMakeFiles/Makefile2 CMakeFiles/InternetRouter.dir/all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/pi/Desktop/InternetReceiver/build/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/pi/Desktop/InternetRouter/build/CMakeFiles 0
 .PHONY : CMakeFiles/InternetRouter.dir/rule
 
 # Convenience name for target.

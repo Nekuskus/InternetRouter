@@ -6,21 +6,17 @@
 
 #IncludeRegexTransform: 
 
-/home/pi/Desktop/InternetReceiver/main.cpp
+/home/pi/Desktop/InternetRouter/main.cpp
 iostream
 -
 wiringPi.h
+-
+wiringSerial.h
 -
 thread
 -
 queue
 -
-stdlib.h
--
-fcntl.h
--
-sys/mman.h
--
-unistd.h
+bitset
 -
 
