@@ -1,73 +1,10 @@
 #include <iostream>
 #include <wiringPi.h>
+#include <wiringSerial.h>
 #include <thread>
 #include <queue>
-
-#include <stdlib.h>
-#include <fcntl.h>
-#include <sys/mman.h>
-#include <unistd.h>
-
-
-
-#define PAGE_SIZE (4*1024)
-#define BLOCK_SIZE (4*1024)
-
-#define BCM2708_PERI_BASE        0x20000000
-#define GPIO_BASE                (BCM2708_PERI_BASE + 0x200000) /* GPIO controller */
-
-int  mem_fd;
-void *gpio_map;
-
-volatile unsigned *gpio;
-
-// GPIO setup macros. Always use INP_GPIO(x) before using OUT_GPIO(x) or SET_GPIO_ALT(x,y)
-#define INP_GPIO(g) *(gpio+((g)/10)) &= ~(7<<(((g)%10)*3))
-#define OUT_GPIO(g) *(gpio+((g)/10)) |=  (1<<(((g)%10)*3))
-#define SET_GPIO_ALT(g,a) *(gpio+(((g)/10))) |= (((a)<=3?(a)+4:(a)==4?3:2)<<(((g)%10)*3))
-
-
-#define GPIO_SET *(gpio+7)  // sets   bits which are 1 ignores bits which are 0
-#define GPIO_CLR *(gpio+10) // clears bits which are 1 ignores bits which are 0
-
-#define GET_GPIO(g) (*(gpio+13)&(1<<g)) // 0 if LOW, (1<<g) if HIGH
-
-#define GPIO_PULL *(gpio+37) // Pull up/pull down
-#define GPIO_PULLCLK0 *(gpio+38) // Pull up/pull down clock
-
-//
-// Set up a memory regions to access GPIO
-//
-void setup_io()
-{
-   /* open /dev/mem */
-    if ((mem_fd = open("/dev/mem", O_RDWR|O_SYNC) ) < 0) {
-        printf("can't open /dev/mem \n");
-        exit(-1);
-    }
-
-   /* mmap GPIO */
-    gpio_map = mmap(
-        NULL,             //Any adddress in our space will do
-        BLOCK_SIZE,       //Map length
-        PROT_READ|PROT_WRITE,// Enable reading & writting to mapped memory
-        MAP_SHARED,       //Shared with other processes
-        mem_fd,           //File to map
-        GPIO_BASE         //Offset to GPIO peripheral
-    );
-
-    close(mem_fd); //No need to keep mem_fd open after mmap
-
-    if (gpio_map == MAP_FAILED) {
-        printf("mmap error %d\n", (int)gpio_map);//errno also set!
-        exit(-1);
-    }
-
-   // Always use volatile pointer!
-   gpio = (volatile unsigned *)gpio_map;
-
-
-} // setup_io
+#include <bitset>
+//#include <pi-gpio.h>
 
 char hex[16] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
 
@@ -147,18 +84,18 @@ public:
 };
 class L2FrameUDP {
 public:
-    unsigned char destinationmac5;
-    unsigned char destinationmac4;
-    unsigned char destinationmac3;
-    unsigned char destinationmac2;
-    unsigned char destinationmac1;
     unsigned char destinationmac0;
-    unsigned char sourcemac5;
-    unsigned char sourcemac4;
-    unsigned char sourcemac3;
-    unsigned char sourcemac2;
-    unsigned char sourcemac1;
+    unsigned char destinationmac1;
+    unsigned char destinationmac2;
+    unsigned char destinationmac3;
+    unsigned char destinationmac4;
+    unsigned char destinationmac5;
     unsigned char sourcemac0;
+    unsigned char sourcemac1;
+    unsigned char sourcemac2;
+    unsigned char sourcemac3;
+    unsigned char sourcemac4;
+    unsigned char sourcemac5;
     L3PacketUDP L3;
     uint32_t crc;
     L2FrameUDP(unsigned char _destinationmac[6], unsigned char _sourcemac[6], L3PacketUDP l3, uint32_t _crc = 0) : sourcemac0{_sourcemac[0]}, sourcemac1{_sourcemac[1]}, sourcemac2{_sourcemac[2]}, sourcemac3{_sourcemac[3]}, sourcemac4{_sourcemac[4]}, sourcemac5{_sourcemac[5]}, destinationmac0{_destinationmac[0]}, destinationmac1{_destinationmac[1]}, destinationmac2{_destinationmac[2]}, destinationmac3{_destinationmac[3]}, destinationmac4{_destinationmac[4]}, destinationmac5{_destinationmac[5]}, L3{l3}, crc{_crc} {
@@ -173,41 +110,230 @@ public:
 std::queue<std::pair<unsigned char, L2FrameUDP>> outgoingdata;
 std::queue<std::pair<unsigned char, L2FrameUDP>> incomingdata;
 
-void setGPIO(int pin, int value) {
-    GPIO_SET = (value << pin);
+volatile bool is_writing = false;
+
+unsigned int gpiomapping[24] = {27, 28, 3, 5, 7, 29, 31, 26, 24, 21, 19, 23, 32, 33, 8, 10, 36, 11, 12, 35, 38, 40, 15, 16};
+
+std::thread router;
+
+volatile int eth[4] = { serialOpen("/dev/ttyAMA1", 9600), serialOpen("/dev/ttyAMA2", 9600), serialOpen("/dev/ttyAMA3", 9600), serialOpen("/dev/ttyAMA4", 9600)};
+
+volatile std::pair<uint32_t, uint32_t> routingtable[4] = {std::pair<uint32_t, uint32_t>(0, 0), std::pair<uint32_t, uint32_t>(0, 0), std::pair<uint32_t, uint32_t>(0, 0), std::pair<uint32_t, uint32_t>(0, 0)};
+
+
+void printpacket(L2FrameUDP frame) {
+    while(is_writing == true) {}
+    is_writing = true;
+    std::cout << "Received packet:\n";
+    //std::cout << "L2 Sourcemac: " << std::bitset<8>(frame.sourcemac0) << std::bitset<8>(frame.sourcemac1) << std::bitset<8>(frame.sourcemac2) << std::bitset<8>(frame.sourcemac3) << std::bitset<8>(frame.sourcemac4) << std::bitset<8>(frame.sourcemac5) << '\n';
+    //std::cout << "L2 Destinationmac: " << std::bitset<8>(frame.destinationmac0) << std::bitset<8>(frame.destinationmac1) << std::bitset<8>(frame.destinationmac2) << std::bitset<8>(frame.destinationmac3) << std::bitset<8>(frame.destinationmac4) << std::bitset<8>(frame.destinationmac5) << '\n';
+    std::cout << "L2 Sourcemac: " << std::hex << (uint32_t)frame.sourcemac0 << ':' << (uint32_t)frame.sourcemac1 << ':' << (uint32_t)frame.sourcemac2 << ':' << (uint32_t)frame.sourcemac3 << ':' << (uint32_t)frame.sourcemac4 << ':' << (uint32_t)frame.sourcemac5 << std::dec << '\n';
+    std::cout << "L2 Destinationmac: " << std::hex << (uint32_t)frame.destinationmac0 << ':' << (uint32_t)frame.destinationmac1 << ':' << (uint32_t)frame.destinationmac2 << ':' << (uint32_t)frame.destinationmac3 << ':' << (uint32_t)frame.destinationmac4 << ':' << (uint32_t)frame.destinationmac5 << std::dec << '\n';
+    std::cout << "L2 CRC: " << frame.crc << '\n';
+    std::cout << "L3 Sourceip: " << (uint32_t)((frame.L3.sourceip >> (3*8)) && 0b11111111) << '.' << (uint32_t)((frame.L3.sourceip >> (2*8)) && 0b11111111) << '.' << (uint32_t)((frame.L3.sourceip >> (1*8)) && 0b11111111) << '.' << (uint32_t)(frame.L3.sourceip && 0b11111111) << '\n';
+    std::cout << "L3 Destinationip: " << (uint32_t)((frame.L3.destinationip >> (3*8)) && 0b11111111) << '.' << (uint32_t)((frame.L3.destinationip >> (2*8)) && 0b11111111) << '.' << (uint32_t)((frame.L3.destinationip >> (1*8)) && 0b11111111) << '.' << (uint32_t)(frame.L3.destinationip && 0b11111111) << '\n';
+    std::cout << "L3 Sourcemask: " << "0x" << std::hex << frame.L3.sourcemask << std::dec << '\n';
+    std::cout << "L3 TTL: " << (uint32_t)frame.L3.TTL << '\n';
+    std::cout << "L4 Istcp: " << frame.L3.L4.istcp << '\n';
+    std::cout << "L4 Sourceport: " << (uint32_t)frame.L3.L4.sourceport << '\n';
+    std::cout << "L4 Destinationport: " << (uint32_t)frame.L3.L4.destinationport << '\n';
+    std::cout << "L5 Sessionid: " << (uint32_t)frame.L3.L4.L5.sessionid << '\n';
+    std::cout << "L6 Protocolid: " << (uint32_t)frame.L3.L4.L5.L6.protocolid << '(' << ((((uint32_t)frame.L3.L4.L5.L6.protocolid >= 0) && ((uint32_t)frame.L3.L4.L5.L6.protocolid <= 2)) ? protocols[frame.L3.L4.L5.L6.protocolid] : "UNKNOWN") << ")\n";
+    std::cout << "L7 Data: " << "{ " << (uint32_t)frame.L3.L4.L5.L6.L7.data0 << ", ";
+    std::cout << (uint32_t)frame.L3.L4.L5.L6.L7.data1 << ", ";
+    std::cout << (uint32_t)frame.L3.L4.L5.L6.L7.data2 << ", ";
+    std::cout << (uint32_t)frame.L3.L4.L5.L6.L7.data3 << ", ";
+    std::cout << (uint32_t)frame.L3.L4.L5.L6.L7.data4 << ", ";
+    std::cout << (uint32_t)frame.L3.L4.L5.L6.L7.data5 << ", ";
+    std::cout << (uint32_t)frame.L3.L4.L5.L6.L7.data6 << ", ";
+    std::cout << (uint32_t)frame.L3.L4.L5.L6.L7.data7 << ", ";
+    std::cout << (uint32_t)frame.L3.L4.L5.L6.L7.data8 << ", ";
+    std::cout << (uint32_t)frame.L3.L4.L5.L6.L7.data9  << " }" << std::endl;
+    is_writing = false;
 }
 
 void routingthread() {
+    while(true) {
+        while(!incomingdata.empty()) {
+            //std::bitset<sizeof(L2FrameUDP) * 8> bits = incomingdata.front().second;
+            //for(int i = 0; i < 352/2; i++) {
+            //   bool t = bits[i];
+            //   bits[i] = bits[352-1-i];
+            //   bits[352-1-i] = t;
+            //}
+            L2FrameUDP frame = incomingdata.front().second;
+            //std::cout << "First eight bytes" << (unsigned int)bits[351-0] << (unsigned int)bits[351-1] << (unsigned int)bits[351-2] << (unsigned int)bits[351-3] << (unsigned int)bits[351-4] << (unsigned int)bits[351-5] << (unsigned int)bits[351-6] << (unsigned int)bits[351-7] << '\n';
+            incomingdata.pop();
 
+            printpacket(frame);
+
+        }
+    }
+}
+void pollForPackets() {
+    int lastavail[4] = {0, 0, 0, 0};
+    int samecounter[4] = {0, 0, 0, 0};
+
+    bool firstpacket[4] = {true, true, true, true};
+
+    while(true) {
+
+        while(is_writing == true) {}
+        is_writing = true;
+        int avail[4] = {serialDataAvail(eth[0]), serialDataAvail(eth[1]), serialDataAvail(eth[2]), serialDataAvail(eth[3])};
+        std::cout << "Bytes available: " << avail[0] << '/' << avail[1] << '/' << avail[2] << '/' << avail[3] << std::endl;
+        is_writing = false;
+        for(int i = 0; i < 4; i++) {
+            if(avail[i] == lastavail[i]) {
+                samecounter[i]++;
+                if(samecounter[i] >= 40) {
+                    serialFlush(i);
+                    firstpacket[i] = true;
+                    samecounter[i] = 0;
+                    while(is_writing == true) {}
+                    is_writing = true;
+                    std::cout << "Connection lost, flushing eth" << i << std::endl;
+                    is_writing = false;
+                }
+            } else {
+                lastavail[i] = avail[i];
+                samecounter[i] = 0;
+            }
+            if(avail[i] >= sizeof(L2FrameUDP)) {
+                int multiple = 0;
+                while((multiple * sizeof(L2FrameUDP)) < avail[i]) {
+                    multiple = multiple + 1;
+                }
+                multiple = multiple - 1;
+                if(firstpacket[i]) {
+                    for(int i2 = 0; i2 < (avail[i] - (multiple * sizeof(L2FrameUDP))); i2++) {
+                        serialGetchar(eth[i]);
+                    }
+                    firstpacket[i] = false;
+                }
+                while(avail[i] >= sizeof(L2FrameUDP)) {
+                    uint8_t bytes[sizeof(L2FrameUDP)];
+                    for(int i2 = 0; i2 < sizeof(L2FrameUDP); i2++) {
+                        bytes[i2] = serialGetchar(eth[i]);
+                    }
+                    std::bitset<sizeof(L2FrameUDP) * 8> bitset = *(reinterpret_cast<std::bitset<sizeof(L2FrameUDP) * 8>*>(bytes));
+                    L2FrameUDP received = *(reinterpret_cast<L2FrameUDP*>(&bitset));
+                    incomingdata.emplace(std::pair<unsigned char, L2FrameUDP>(i, received));
+                    avail[i] -= sizeof(L2FrameUDP);
+                }
+            }
+        }
+        delay(500);
+    }
+
+    /*
+    setup(); //setup pi-gpio
+    for(int i = 0; i < 23; i+=6) {
+        // init pins 0-23
+        // eth0: pins 0-5
+        // input: pins 0-2, output: pins 3-5
+        
+        // eth1: pins 6-11
+        // input: pins, 6-8, output: 9-11
+        
+        // eth2: pins 12-17
+        // input: pins 12-14, output: 15-17
+
+        // eth3: pins 18-23
+        // input: pins 18-20, output: 21-23
+        setup_gpio(i,   OUTPUT, 0);
+        setup_gpio(i+1, OUTPUT, 0);
+        setup_gpio(i+2, OUTPUT, 0);
+        output_gpio(i, LOW);
+        output_gpio(i+1, LOW);
+        output_gpio(i+2, LOW);
+        setup_gpio(i+3, INPUT, 0);
+        setup_gpio(i+4, INPUT, 0);
+        setup_gpio(i+5, INPUT, 0);
+    }
+    
+    while(true) {
+        std::bitset<sizeof(L2FrameUDP) * 8> packet(0x0);
+        //std::cout << "Starting to receive packet" << std::endl;
+        while(true) {
+            if((input_gpio(3) == 1) && (input_gpio(4) == 1) && (input_gpio(5) == 1)) {
+                goto waitforinput;
+            }
+        }
+        
+    waitforinput:
+        //std::cout << "Preamble received\n";
+        while(true) {
+            int bit1 = input_gpio(3);
+            int bit2 = input_gpio(4);
+            int bit3 = input_gpio(5);
+            if((bit1 != 1) || (bit2 != 1) || (bit2 != 1)) {
+                packet.set(0, bit1);
+                packet.set(1, bit2);
+                packet.set(2, bit3);
+                //std::cout << "First bits received\n";
+                goto receivepacket;
+            }
+            delayMicroseconds(40);
+        }
+    receivepacket:
+        //int lastbit1 = 0, lastbit2 = 0, lastbit3 = 0, repeatcounter = 0;
+        for(int i = 3; i < ((sizeof(L2FrameUDP) * 8) - 4); i+=3) {
+            int bit1 = input_gpio(3);
+            int bit2 = input_gpio(4);
+            int bit3 = input_gpio(5);
+            /*if((bit1 == lastbit1) && (bit2 == lastbit2) && (bit3 == lastbit3)) {
+                repeatcounter++;
+            } else {
+                repeatcounter = 0;
+            }
+            lastbit1 = bit1;
+            lastbit2 = bit2;
+            lastbit3 = bit2;
+            */ /*
+            packet.set(i, (bool)(bit1 & 0x1));
+            packet.set(i+1, (bool)(bit2 & 0x1));
+            packet.set(i+2, (bool)(bit3 & 0x1));
+            delayMicroseconds(40);
+        }
+        packet.set(351, (bool)(input_gpio(3) & 0x1));
+        //if(repeatcounter > 50) {
+        //    std::cout << "Packet probably dropped" << std::endl;
+        //}
+        
+        //std::cout << "Packet received" << std::endl;
+        incomingdata.emplace(std::pair<unsigned char, std::bitset<sizeof(L2FrameUDP) * 8>>(0, packet));
+        //unsigned char bytes[sizeof(L2FrameUDP)];
+        //for(int i = 0; i < (sizeof(L2FrameUDP) * 8) - 1; i+=8) {
+        //    bytes[i] = (unsigned char)((packet[i] << 7) + (packet[i] << 6) + (packet[i] << 5) + (packet[i] << 4) + (packet[i] << 3) + (packet[i] << 2) + (packet[i] << 1) + packet[i]);
+        //}
+        //L2FrameUDP receivedpacket = reinterpret_cast<L2FrameUDP&>(bytes);
+    }
+    */
+    
 }
 
 int main() {
+    
+    serialFlush(eth[0]);
+    serialFlush(eth[1]);
+    serialFlush(eth[2]);
+    serialFlush(eth[3]);
+
+    router = std::thread(routingthread);
+
     if(wiringPiSetupSys() == -1) {
         return 1;
     }
 
-    int g, rep;
-    setup_io();
-    for(int i = 0; i < 24; i++) { // init pins 0-23
-        // eth0: pins 0-5
-        // eth1: pins 6-11
-        // eth2: pins 12-17
-        // eth3: pins 18-23
-        
-    }
-    std::thread router(routingthread);
-
-    /*
-    for(int i = 0; i < 6; i++) {
-        pinMode(i, OUTPUT);
-        digitalWrite(i, 0);
-    }
-    delay(2500);
-    for(int i = 0; i < 6; i++) {
-        if(i % 2 == 0) digitalWrite(i, 1);
-    }
+    pollForPackets();
+    
+    std::cout << "Stopping" << std::endl;
     std::string halt;
     std::cin >> halt;
-    */
+
+    for(int i = 0; i < 4; i++) {
+        serialClose(eth[i]);
+    }
 }
 
