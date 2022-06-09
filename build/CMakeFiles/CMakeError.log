@@ -1,21 +1,21 @@
 Performing C SOURCE FILE Test CMAKE_HAVE_LIBC_PTHREAD failed with the following output:
 Change Dir: /home/pi/Desktop/InternetRouter/build/CMakeFiles/CMakeTmp
 
-Run Build Command(s):/usr/bin/make cmTC_5e417/fast && /usr/bin/make -f CMakeFiles/cmTC_5e417.dir/build.make CMakeFiles/cmTC_5e417.dir/build
+Run Build Command(s):/usr/bin/make cmTC_ebf4b/fast && /usr/bin/make -f CMakeFiles/cmTC_ebf4b.dir/build.make CMakeFiles/cmTC_ebf4b.dir/build
 make[1]: Wejście do katalogu '/home/pi/Desktop/InternetRouter/build/CMakeFiles/CMakeTmp'
-Building C object CMakeFiles/cmTC_5e417.dir/src.c.o
-/usr/bin/cc   -DCMAKE_HAVE_LIBC_PTHREAD   -o CMakeFiles/cmTC_5e417.dir/src.c.o   -c /home/pi/Desktop/InternetRouter/build/CMakeFiles/CMakeTmp/src.c
-Linking C executable cmTC_5e417
-/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_5e417.dir/link.txt --verbose=1
-/usr/bin/cc  -DCMAKE_HAVE_LIBC_PTHREAD    -rdynamic CMakeFiles/cmTC_5e417.dir/src.c.o  -o cmTC_5e417 
-/usr/bin/ld: CMakeFiles/cmTC_5e417.dir/src.c.o: in function `main':
+Building C object CMakeFiles/cmTC_ebf4b.dir/src.c.o
+/usr/bin/gcc-8   -DCMAKE_HAVE_LIBC_PTHREAD   -o CMakeFiles/cmTC_ebf4b.dir/src.c.o   -c /home/pi/Desktop/InternetRouter/build/CMakeFiles/CMakeTmp/src.c
+Linking C executable cmTC_ebf4b
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_ebf4b.dir/link.txt --verbose=1
+/usr/bin/gcc-8  -DCMAKE_HAVE_LIBC_PTHREAD    -rdynamic CMakeFiles/cmTC_ebf4b.dir/src.c.o  -o cmTC_ebf4b 
+/usr/bin/ld: CMakeFiles/cmTC_ebf4b.dir/src.c.o: in function `main':
 src.c:(.text+0x40): undefined reference to `pthread_create'
 /usr/bin/ld: src.c:(.text+0x4c): undefined reference to `pthread_detach'
 /usr/bin/ld: src.c:(.text+0x5c): undefined reference to `pthread_join'
 collect2: error: ld returned 1 exit status
-make[1]: *** [CMakeFiles/cmTC_5e417.dir/build.make:87: cmTC_5e417] Błąd 1
+make[1]: *** [CMakeFiles/cmTC_ebf4b.dir/build.make:87: cmTC_ebf4b] Błąd 1
 make[1]: Opuszczenie katalogu '/home/pi/Desktop/InternetRouter/build/CMakeFiles/CMakeTmp'
-make: *** [Makefile:121: cmTC_5e417/fast] Błąd 2
+make: *** [Makefile:121: cmTC_ebf4b/fast] Błąd 2
 
 
 Source file was:

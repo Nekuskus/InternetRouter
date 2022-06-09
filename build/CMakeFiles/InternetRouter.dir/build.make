@@ -60,15 +60,15 @@ include CMakeFiles/InternetRouter.dir/flags.make
 CMakeFiles/InternetRouter.dir/main.cpp.o: CMakeFiles/InternetRouter.dir/flags.make
 CMakeFiles/InternetRouter.dir/main.cpp.o: ../main.cpp
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/pi/Desktop/InternetRouter/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/InternetRouter.dir/main.cpp.o"
-	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/InternetRouter.dir/main.cpp.o -c /home/pi/Desktop/InternetRouter/main.cpp
+	/usr/bin/g++-8  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/InternetRouter.dir/main.cpp.o -c /home/pi/Desktop/InternetRouter/main.cpp
 
 CMakeFiles/InternetRouter.dir/main.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/InternetRouter.dir/main.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/pi/Desktop/InternetRouter/main.cpp > CMakeFiles/InternetRouter.dir/main.cpp.i
+	/usr/bin/g++-8 $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/pi/Desktop/InternetRouter/main.cpp > CMakeFiles/InternetRouter.dir/main.cpp.i
 
 CMakeFiles/InternetRouter.dir/main.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/InternetRouter.dir/main.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/pi/Desktop/InternetRouter/main.cpp -o CMakeFiles/InternetRouter.dir/main.cpp.s
+	/usr/bin/g++-8 $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/pi/Desktop/InternetRouter/main.cpp -o CMakeFiles/InternetRouter.dir/main.cpp.s
 
 # Object files for target InternetRouter
 InternetRouter_OBJECTS = \

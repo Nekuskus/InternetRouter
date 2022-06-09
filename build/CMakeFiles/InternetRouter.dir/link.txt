@@ -1,1 +1,1 @@
-/usr/bin/c++    -rdynamic CMakeFiles/InternetRouter.dir/main.cpp.o  -o InternetRouter  -Wl,-rpath,/usr/local/lib -lwiringPi /usr/local/lib/libpi-gpio.so -pthread 
+/usr/bin/g++-8  -g  -rdynamic CMakeFiles/InternetRouter.dir/main.cpp.o  -o InternetRouter  -Wl,-rpath,/usr/local/lib -lwiringPi /usr/local/lib/libpi-gpio.so -pthread 
