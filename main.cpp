@@ -294,7 +294,7 @@ void pollForPackets() {
         for(int i = 0; i < 4; i++) {
             if(avail[i] == lastavail[i]) {
                 samecounter[i]++;
-                if(samecounter[i] >= 180) { // 180s, after 3 minutes, the port is automaticall freed
+                if(samecounter[i] >= 30) { // 30s, after half a minute, the port is automaticall freed
                     serialFlush(i);
                     //firstpacket[i] = true;
                     routingtable[i] = RouteEntry(0, 0, nulladdress);
